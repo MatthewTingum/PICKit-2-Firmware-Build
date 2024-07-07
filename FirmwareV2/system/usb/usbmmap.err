@@ -1,0 +1,1 @@
+Warning[2001] C:\PICkit_2\FirmwareV2\system\usb\usbmmap.c 164 : non-near symbol 'unit_id_usb_buf' declared in access section 'USBUnitID'

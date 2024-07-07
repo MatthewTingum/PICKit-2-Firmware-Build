@@ -1,0 +1,1463 @@
+MPASM  5.21                       PICKIT2.ASM   7-14-2008  10:45:32         PAGE  1
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+                      00001      INCLUDE "p18f2550.inc"
+                      00001         LIST
+                      00002 
+                      00003 ;==========================================================================
+                      00004 ;  MPASM PIC18F2550 processor include
+                      00005 ; 
+                      00006 ;  (c) Copyright 1999-2007 Microchip Technology, All rights reserved
+                      00007 ;==========================================================================
+                      00008 
+                      01486         LIST
+                      00002      INCLUDE "pickit2.inc"
+                      00001 #define INLINE_ASM_RAM 0x054
+                      00002 #define ASM_TEMP1_RAM   INLINE_ASM_RAM
+                      00003 #define ASM_TEMP2_RAM   (INLINE_ASM_RAM+1)
+                      00004 #define ASM_TEMP3_RAM   (INLINE_ASM_RAM+2)
+                      00005 #define ASM_TEMP4_RAM   (INLINE_ASM_RAM+3)
+                      00006 #define ASM_TEMP5_RAM   (INLINE_ASM_RAM+4)
+                      00007 #define ASM_TEMP6_RAM   (INLINE_ASM_RAM+5)
+                      00008 #define ASM_TEMP7_RAM   (INLINE_ASM_RAM+6)
+                      00009 #define ASM_TEMP8_RAM   (INLINE_ASM_RAM+7)
+                      00010 #define ASM_TEMP9_RAM   (INLINE_ASM_RAM+8)
+                      00011 #define ASM_TEMP10_RAM  (INLINE_ASM_RAM+9)
+                      00012 #define ASM_TEMP11_RAM  (INLINE_ASM_RAM+0xA)
+                      00013 #define ASM_TEMP12_RAM  (INLINE_ASM_RAM+0xB)
+                      00003      
+                      00004      CODE
+                      00005 
+                      00006 ;/******************************************************************************
+                      00007 ; * Function:        JTAG2W4PH primitive
+                      00008 ; *
+                      00009 ; * Overview:        assembly primitive for PIC32 2-Wire 4-Phase JTAG
+                      00010 ; *
+                      00011 ; * PreCondition:    tris_ICSPCLK = 0 (output)
+                      00012 ; *                  ICSPCLK_out = 0 (low)
+                      00013 ; *
+                      00014 ; * Input:           ASM_TEMP1_RAM - TDI (output) value in bit 0
+                      00015 ; *                  ASM_TEMP2_RAM - TMS (output) value in bit 0
+                      00016 ; *
+                      00017 ; * Output:          ASM_TEMP3_RAM - TDO (input) value in bit 0
+                      00018 ; *
+                      00019 ; * Side Effects:    tris_ICSPDAT set to output, then to input
+                      00020 ; *
+                      00021 ; * Note:            Use with an assembly CALL instruction.
+                      00022 ; *                  Min PGCx high or low time = 83ns
+                      00023 ; *                  25 instruction cycles (including CALL & RETURN) = 2.1us
+                      00024 ; *****************************************************************************/
+Warning[207]: Found label after column 1. (JTAG2W4PH)
+000000                00025  JTAG2W4PH:
+000000 8689           00026       bsf     LATA, 3, 0      ;// CLK high phase 1
+000002 9489           00027       bcf     LATA, 2, 0      ;// TDI = 0?
+000004 B054           00028       btfsc   ASM_TEMP1_RAM, 0, 0 ;// Test for TDI value
+000006 8489           00029       bsf     LATA, 2, 0      ;// TDI = 1
+000008 9492           00030       bcf     TRISA, 2, 0     ;// Output TDI (PGD = output)  
+MPASM  5.21                       PICKIT2.ASM   7-14-2008  10:45:32         PAGE  2
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+00000A 0000           00031       nop 
+00000C 9689           00032       bcf     LATA, 3, 0      ;// CLK low Phase 1
+00000E A055           00033       btfss   ASM_TEMP2_RAM, 0, 0 ;// Test for TMS value low
+000010 9489           00034       bcf     LATA, 2, 0      ;// TMS = 0
+000012 8689           00035       bsf     LATA, 3, 0      ;// CLK high phase 2
+000014 B055           00036       btfsc   ASM_TEMP2_RAM, 0, 0 ;// Test for TMS value high
+000016 8489           00037       bsf     LATA, 2, 0      ;// TMS = 1
+000018 9E56           00038       bcf     ASM_TEMP3_RAM, 7, 0 ;// TDO = 0?
+00001A 9689           00039       bcf     LATA, 3, 0      ;// CLK low Phase 2
+00001C 8689           00040       bsf     LATA, 3, 0      ;// CLK high phase 3
+00001E 8492           00041       bsf     TRISA, 2, 0     ;// Input TDO (PGD = input)
+000020 9689           00042       bcf     LATA, 3, 0      ;// CLK low Phase 3
+000022 8689           00043       bsf     LATA, 3, 0      ;// CLK high phase 4
+000024 B480           00044       btfsc   PORTA, 2, 0     ;// Test for TDO value
+000026 8E56           00045       bsf     ASM_TEMP3_RAM, 7, 0 ;// TDO = 1
+000028 9689           00046       bcf     LATA, 3, 0      ;// CLK low Phase 4
+00002A 0012           00047       return 
+                      00048 
+  0000                00049      GLOBAL JTAG2W4PH
+                      00050 
+                      00051 ;/******************************************************************************
+                      00052 ; * Function:        LOGICPREP 
+                      00053 ; *
+                      00054 ; * Overview:        assembly function for Logic Analyzer.
+                      00055 ; *                  Clears RAM 0x600 to 0x7FF and creates
+                      00056 ; *                  TrigMaskSwap(asm_temp2) and TrigStatesSwap(asm_temp4)
+                      00057 ; *                  Also, for pre-run sampling, saves off PostTrigCount in
+                      00058 ; *                  asm_temp9/10 and sets the count to 1023 to fill up the buffer
+                      00059 ; *                  with pre-trigger data.
+                      00060 ; *
+                      00061 ; * PreCondition:    FSR0 saved
+                      00062 ; *
+                      00063 ; * Input:           asm_temp1 = TrigMask
+                      00064 ; *                  asm_temp3 = TrigStates
+                      00065 ; *                  asm_temp7 = PostTrigCountL
+                      00066 ; *                  asm_temp8 = PostTrigCountH + 1
+                      00067 ; *
+                      00068 ; * Output:          asm_temp2 = SWAPF TrigMask
+                      00069 ; *                  asm_temp4 = SWAPF TrigStates
+                      00070 ; *                  asm_temp7 = 0xFE                  ; take 1023 presamples
+                      00071 ; *                  asm_temp8 = 0x04
+                      00072 ; *                  asm_temp9 = PostTrigCountL
+                      00073 ; *                  asm_temp10 = PostTrigCountH + 1
+                      00074 ; *
+                      00075 ; * Side Effects:    Clears RAM addresses 0x600 to 0x7FF, turns on BUSY_LED
+                      00076 ; *
+                      00077 ; * Note:            
+                      00078 ; *****************************************************************************/
+00002C                00079 LOGICPREP:
+00002C 3854           00080      swapf     ASM_TEMP1_RAM, w, 0
+00002E 6E55           00081      movwf     ASM_TEMP2_RAM, 0
+000030 3856           00082      swapf     ASM_TEMP3_RAM, w, 0
+000032 6E57           00083      movwf     ASM_TEMP4_RAM, 0  
+MPASM  5.21                       PICKIT2.ASM   7-14-2008  10:45:32         PAGE  3
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+                      00084      ; prep for pre-trigger sampling
+000034 C05A F05C      00085      movff     ASM_TEMP7_RAM, ASM_TEMP9_RAM
+000038 C05B F05D      00086      movff     ASM_TEMP8_RAM, ASM_TEMP10_RAM
+00003C 0EFE           00087      movlw     0xFE
+00003E 6E5A           00088      movwf     ASM_TEMP7_RAM, 0
+000040 0E04           00089      movlw     0x04
+000042 6E5B           00090      movwf     ASM_TEMP8_RAM, 0
+000044 EE06 F000      00091      lfsr      0, 0x600       ; FSR0 = 0x600
+000048                00092 LOGICPREP_loop:
+000048 6AEE           00093      clrf      POSTINC0, 0
+00004A A6EA           00094      btfss     FSR0H, 3, 0    ; look for 0x800
+00004C D???           00095      bra       LOGICPREP_loop
+00004E 0012           00096      return
+                      00097 
+  0000                00098      GLOBAL LOGICPREP
+                      00099 
+                      00100 ;/******************************************************************************
+                      00101 ; * Function:        ANALYZER_RISING_1MHZ
+                      00102 ; *
+                      00103 ; * Overview:        Logic analyzer with rising edge detection, sample rate 1MHz
+                      00104 ; *
+                      00105 ; * PreCondition:    FSR0 saved
+                      00106 ; *
+                      00107 ; * Input:           asm_temp1-8
+                      00108 ; *
+                      00109 ; * Output:          asm_temp7 = TrigSaveL
+                      00110 ; *                  asm_temp8 = TrigSaveH
+                      00111 ; *                  RAM 0x600-0x7FF : samples
+                      00112 ; *
+                      00113 ; * Side Effects:    Writes RAM addresses 0x600 to 0x7FF
+                      00114 ; *
+                      00115 ; * Note:            
+                      00116 ; *****************************************************************************/
+000050                00117 ANALYZER_RISING_1MHZ:
+000050 EE07 F0FF      00118      lfsr      0, 0x7FF
+000054 D???           00119      rcall     ANALYZER_presample
+000056 C05C F05A      00120      movff     ASM_TEMP9_RAM, ASM_TEMP7_RAM  ; restore PostTrigCount
+00005A C05D F05B      00121      movff     ASM_TEMP10_RAM, ASM_TEMP8_RAM
+00005E 3880           00122      swapf     PORTA, 0, 0                   ; last pre-sample
+000060 12ED           00123      iorwf     POSTDEC0, 1, 0
+000062 6E5D           00124      movwf     ASM_TEMP10_RAM, 0             ; store as last sample
+000064 82EA           00125      bsf       FSR0H, 1, 0
+000066 D???           00126      bra       $+2
+000068 D???           00127      bra       $+2
+00006A D???           00128      bra       $+2
+00006C D???           00129      bra       ANALYZER_RISING_1MHZ_entry
+                      00130 
+00006E                00131 ANALYZER_RISING_1MHZ_notrig4:
+00006E AA81           00132      btfss     PORTB, 5, 0         ; check for abort
+000070 D???           00133      bra       ANALYZER_trigabort
+000072                00134 ANALYZER_RISING_1MHZ_loop:
+000072 3880           00135      swapf     PORTA, 0, 0
+000074 12ED           00136      iorwf     POSTDEC0, 1, 0
+MPASM  5.21                       PICKIT2.ASM   7-14-2008  10:45:32         PAGE  4
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+000076 82EA           00137      bsf       FSR0H, 1, 0
+000078 6E5D           00138      movwf     ASM_TEMP10_RAM, 0
+00007A 1455           00139      andwf     ASM_TEMP2_RAM, 0 ,0
+00007C 1857           00140      xorwf     ASM_TEMP4_RAM, 0, 0
+00007E E1??           00141      bnz       ANALYZER_RISING_1MHZ_notrig1
+000080 505C           00142      movf      ASM_TEMP9_RAM, 0
+000082 1458           00143      andwf     ASM_TEMP5_RAM, 0, 0
+000084 E1??           00144      bnz       ANALYZER_RISING_1MHZ_notrig2
+000086 4E59           00145      dcfsnz    ASM_TEMP6_RAM, 1, 0
+000088 D???           00146      bra       ANALYZER_triggerswap
+00008A                00147 ANALYZER_RISING_1MHZ_entry: 
+00008A 5080           00148      movf      PORTA, 0, 0
+00008C 6EEF           00149      movwf     INDF0, 0
+00008E 6E5C           00150      movwf     ASM_TEMP9_RAM, 0
+000090 1454           00151      andwf     ASM_TEMP1_RAM, 0 ,0
+000092 1856           00152      xorwf     ASM_TEMP3_RAM, 0 ,0
+000094 E1??           00153      bnz       ANALYZER_RISING_1MHZ_notrig3
+000096 385D           00154      swapf     ASM_TEMP10_RAM, 0, 0
+000098 1458           00155      andwf     ASM_TEMP5_RAM, 0, 0
+00009A E1??           00156      bnz       ANALYZER_RISING_1MHZ_notrig4
+00009C 2E59           00157      decfsz    ASM_TEMP6_RAM, 1, 0
+00009E D???           00158      bra       ANALYZER_RISING_1MHZ_loop
+0000A0 D???           00159      bra       ANALYZER_trigger
+                      00160 
+0000A2                00161 ANALYZER_RISING_1MHZ_notrig2:
+0000A2 0000           00162      nop
+0000A4 5080           00163      movf      PORTA, 0, 0
+0000A6 6EEF           00164      movwf     INDF0, 0
+0000A8 6E5C           00165      movwf     ASM_TEMP9_RAM, 0
+0000AA 1454           00166      andwf     ASM_TEMP1_RAM, 0 ,0
+0000AC 1856           00167      xorwf     ASM_TEMP3_RAM, 0 ,0
+0000AE E1??           00168      bnz       ANALYZER_RISING_1MHZ_notrig3
+0000B0 385D           00169      swapf     ASM_TEMP10_RAM, 0, 0
+0000B2 1458           00170      andwf     ASM_TEMP5_RAM, 0, 0
+0000B4 E1??           00171      bnz       ANALYZER_RISING_1MHZ_notrig4
+0000B6 2E59           00172      decfsz    ASM_TEMP6_RAM, 1, 0
+0000B8 D???           00173      bra       ANALYZER_RISING_1MHZ_loop
+0000BA D???           00174      bra       ANALYZER_trigger
+                      00175 
+0000BC                00176 ANALYZER_RISING_1MHZ_notrig1:
+0000BC AA81           00177      btfss     PORTB, 5, 0         ; check for abort
+0000BE D???           00178      bra       ANALYZER_trigabort
+0000C0 D???           00179      bra       ANALYZER_RISING_1MHZ_entry
+                      00180 
+0000C2                00181 ANALYZER_RISING_1MHZ_notrig3:
+0000C2 0000           00182      nop
+0000C4 D???           00183      bra       ANALYZER_RISING_1MHZ_notrig4
+                      00184 
+  0000                00185      GLOBAL ANALYZER_RISING_1MHZ
+                      00186 
+                      00187 ;/******************************************************************************
+                      00188 ; * Function:        ANALYZER_FALLING_1MHZ
+                      00189 ; *
+MPASM  5.21                       PICKIT2.ASM   7-14-2008  10:45:32         PAGE  5
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+                      00190 ; * Overview:        Logic analyzer with falling edge detection, sample rate 1MHz
+                      00191 ; *
+                      00192 ; * PreCondition:    FSR0 saved
+                      00193 ; *
+                      00194 ; * Input:           asm_temp1-8
+                      00195 ; *
+                      00196 ; * Output:          asm_temp7 = TrigSaveL
+                      00197 ; *                  asm_temp8 = TrigSaveH
+                      00198 ; *                  RAM 0x600-0x7FF : samples
+                      00199 ; *
+                      00200 ; * Side Effects:    Writes RAM addresses 0x600 to 0x7FF
+                      00201 ; *
+                      00202 ; * Note:            
+                      00203 ; *****************************************************************************/
+0000C6                00204 ANALYZER_FALLING_1MHZ:
+0000C6 EE07 F0FF      00205      lfsr      0, 0x7FF
+0000CA D???           00206      rcall     ANALYZER_presample
+0000CC C05C F05A      00207      movff     ASM_TEMP9_RAM, ASM_TEMP7_RAM  ; restore PostTrigCount
+0000D0 C05D F05B      00208      movff     ASM_TEMP10_RAM, ASM_TEMP8_RAM
+0000D4 3880           00209      swapf     PORTA, 0, 0                   ; last pre-sample
+0000D6 12ED           00210      iorwf     POSTDEC0, 1, 0
+0000D8 6E5D           00211      movwf     ASM_TEMP10_RAM, 0             ; store as last sample
+0000DA 82EA           00212      bsf       FSR0H, 1, 0
+0000DC D???           00213      bra       $+2
+0000DE D???           00214      bra       $+2
+0000E0 D???           00215      bra       $+2
+0000E2 D???           00216      bra       ANALYZER_FALLING_1MHZ_entry
+                      00217 
+0000E4                00218 ANALYZER_FALLING_1MHZ_notrig4:
+0000E4 AA81           00219      btfss     PORTB, 5, 0         ; check for abort
+0000E6 D???           00220      bra       ANALYZER_trigabort
+0000E8                00221 ANALYZER_FALLING_1MHZ_loop:
+0000E8 3880           00222      swapf     PORTA, 0, 0
+0000EA 12ED           00223      iorwf     POSTDEC0, 1, 0
+0000EC 82EA           00224      bsf       FSR0H, 1, 0
+0000EE 6E5D           00225      movwf     ASM_TEMP10_RAM, 0
+0000F0 1455           00226      andwf     ASM_TEMP2_RAM, 0 ,0
+0000F2 1857           00227      xorwf     ASM_TEMP4_RAM, 0, 0
+0000F4 E1??           00228      bnz       ANALYZER_FALLING_1MHZ_notrig1
+0000F6 505C           00229      movf      ASM_TEMP9_RAM, 0
+0000F8 1458           00230      andwf     ASM_TEMP5_RAM, 0, 0
+0000FA E0??           00231      bz        ANALYZER_FALLING_1MHZ_notrig2
+0000FC 4E59           00232      dcfsnz    ASM_TEMP6_RAM, 1, 0
+0000FE D???           00233      bra       ANALYZER_triggerswap
+000100                00234 ANALYZER_FALLING_1MHZ_entry: 
+000100 5080           00235      movf      PORTA, 0, 0
+000102 6EEF           00236      movwf     INDF0, 0
+000104 6E5C           00237      movwf     ASM_TEMP9_RAM, 0
+000106 1454           00238      andwf     ASM_TEMP1_RAM, 0 ,0
+000108 1856           00239      xorwf     ASM_TEMP3_RAM, 0 ,0
+00010A E1??           00240      bnz       ANALYZER_FALLING_1MHZ_notrig3
+00010C 385D           00241      swapf     ASM_TEMP10_RAM, 0, 0
+00010E 1458           00242      andwf     ASM_TEMP5_RAM, 0, 0
+MPASM  5.21                       PICKIT2.ASM   7-14-2008  10:45:32         PAGE  6
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+000110 E0??           00243      bz        ANALYZER_FALLING_1MHZ_notrig4
+000112 2E59           00244      decfsz    ASM_TEMP6_RAM, 1, 0
+000114 D???           00245      bra       ANALYZER_FALLING_1MHZ_loop
+000116 D???           00246      bra       ANALYZER_trigger
+                      00247 
+000118                00248 ANALYZER_FALLING_1MHZ_notrig2:
+000118 0000           00249      nop
+00011A 5080           00250      movf      PORTA, 0, 0
+00011C 6EEF           00251      movwf     INDF0, 0
+00011E 6E5C           00252      movwf     ASM_TEMP9_RAM, 0
+000120 1454           00253      andwf     ASM_TEMP1_RAM, 0 ,0
+000122 1856           00254      xorwf     ASM_TEMP3_RAM, 0 ,0
+000124 E1??           00255      bnz       ANALYZER_FALLING_1MHZ_notrig3
+000126 385D           00256      swapf     ASM_TEMP10_RAM, 0, 0
+000128 1458           00257      andwf     ASM_TEMP5_RAM, 0, 0
+00012A E0??           00258      bz        ANALYZER_FALLING_1MHZ_notrig4
+00012C 2E59           00259      decfsz    ASM_TEMP6_RAM, 1, 0
+00012E D???           00260      bra       ANALYZER_FALLING_1MHZ_loop
+000130 D???           00261      bra       ANALYZER_trigger
+                      00262 
+000132                00263 ANALYZER_FALLING_1MHZ_notrig1:
+000132 AA81           00264      btfss     PORTB, 5, 0         ; check for abort
+000134 D???           00265      bra       ANALYZER_trigabort
+000136 D???           00266      bra       ANALYZER_FALLING_1MHZ_entry
+                      00267 
+000138                00268 ANALYZER_FALLING_1MHZ_notrig3:
+000138 0000           00269      nop
+00013A D???           00270      bra       ANALYZER_FALLING_1MHZ_notrig4
+                      00271 
+  0000                00272      GLOBAL ANALYZER_FALLING_1MHZ
+                      00273 
+                      00274 
+                      00275 ;/******************************************************************************
+                      00276 ; * Function:        ANALYZER_SLOWRATE
+                      00277 ; *
+                      00278 ; * Overview:        Logic analyzer with rising/falling edge detection, 
+                      00279 ; *                  sample rate < 1MHz
+                      00280 ; *
+                      00281 ; * PreCondition:    FSR0 saved
+                      00282 ; *
+                      00283 ; * Input:           asm_temp1-8
+                      00284 ; *
+                      00285 ; * Output:          asm_temp7 = TrigSaveL
+                      00286 ; *                  asm_temp8 = TrigSaveH
+                      00287 ; *                  RAM 0x600-0x7FF : samples
+                      00288 ; *
+                      00289 ; * Side Effects:    Writes RAM addresses 0x600 to 0x7FF
+                      00290 ; *
+                      00291 ; * Note:            
+                      00292 ; *****************************************************************************/
+00013C                00293 ANALYZER_SLOWRATE:
+00013C EE07 F0FF      00294      lfsr      0, 0x7FF
+000140 D???           00295      rcall     ANALYZER_presample
+MPASM  5.21                       PICKIT2.ASM   7-14-2008  10:45:32         PAGE  7
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+000142 C05C F05A      00296      movff     ASM_TEMP9_RAM, ASM_TEMP7_RAM  ; restore PostTrigCount
+000146 C05D F05B      00297      movff     ASM_TEMP10_RAM, ASM_TEMP8_RAM
+00014A D???           00298      rcall     ANALYZER_Delay       ; 11 cycles for 1
+00014C 0000           00299      nop
+00014E 3880           00300      swapf     PORTA, 0, 0                   ; last pre-sample
+000150 12ED           00301      iorwf     POSTDEC0, 1, 0
+000152 6E5D           00302      movwf     ASM_TEMP10_RAM, 0             ; store as last sample
+000154 82EA           00303      bsf       FSR0H, 1, 0
+000156 D???           00304      bra       $+2
+000158 D???           00305      bra       $+2
+00015A D???           00306      bra       $+2
+00015C 0000           00307      nop
+00015E D???           00308      bra       ANALYZER_SLOWRATE_entry
+                      00309 
+000160                00310 ANALYZER_SLOWRATE_notrig4:
+000160 AA81           00311      btfss     PORTB, 5, 0         ; check for abort
+000162 D???           00312      bra       ANALYZER_trigabort
+000164                00313 ANALYZER_SLOWRATE_loop:
+000164 D???           00314      rcall     ANALYZER_Delay       ; 11 cycles for 1
+000166 3880           00315      swapf     PORTA, 0, 0
+000168 12ED           00316      iorwf     POSTDEC0, 1, 0
+00016A 82EA           00317      bsf       FSR0H, 1, 0
+00016C 6E5D           00318      movwf     ASM_TEMP10_RAM, 0
+00016E 1455           00319      andwf     ASM_TEMP2_RAM, 0 ,0
+000170 1857           00320      xorwf     ASM_TEMP4_RAM, 0, 0
+000172 E1??           00321      bnz       ANALYZER_SLOWRATE_notrig1
+000174 505C           00322      movf      ASM_TEMP9_RAM, 0
+000176 1458           00323      andwf     ASM_TEMP5_RAM, 0, 0
+000178 185F           00324      xorwf     ASM_TEMP12_RAM, 0 , 0
+00017A E1??           00325      bnz       ANALYZER_SLOWRATE_notrig2
+00017C 4E59           00326      dcfsnz    ASM_TEMP6_RAM, 1, 0
+00017E D???           00327      bra       ANALYZER_triggerswap
+000180                00328 ANALYZER_SLOWRATE_entry: 
+000180 D???           00329      rcall     ANALYZER_Delay       ; 11 cycles for 1
+000182 5080           00330      movf      PORTA, 0, 0
+000184 6EEF           00331      movwf     INDF0, 0
+000186 6E5C           00332      movwf     ASM_TEMP9_RAM, 0
+000188 1454           00333      andwf     ASM_TEMP1_RAM, 0 ,0
+00018A 1856           00334      xorwf     ASM_TEMP3_RAM, 0 ,0
+00018C E1??           00335      bnz       ANALYZER_SLOWRATE_notrig3
+00018E 385D           00336      swapf     ASM_TEMP10_RAM, 0, 0
+000190 1458           00337      andwf     ASM_TEMP5_RAM, 0, 0
+000192 185F           00338      xorwf     ASM_TEMP12_RAM, 0 , 0
+000194 E1??           00339      bnz       ANALYZER_SLOWRATE_notrig4
+000196 2E59           00340      decfsz    ASM_TEMP6_RAM, 1, 0
+000198 D???           00341      bra       ANALYZER_SLOWRATE_loop
+00019A D???           00342      bra       ANALYZER_trigger
+                      00343 
+00019C                00344 ANALYZER_SLOWRATE_notrig2:
+00019C 0000           00345      nop
+00019E D???           00346      rcall     ANALYZER_Delay       ; 11 cycles for 1
+0001A0 5080           00347      movf      PORTA, 0, 0
+0001A2 6EEF           00348      movwf     INDF0, 0
+MPASM  5.21                       PICKIT2.ASM   7-14-2008  10:45:32         PAGE  8
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+0001A4 6E5C           00349      movwf     ASM_TEMP9_RAM, 0
+0001A6 1454           00350      andwf     ASM_TEMP1_RAM, 0 ,0
+0001A8 1856           00351      xorwf     ASM_TEMP3_RAM, 0 ,0
+0001AA E1??           00352      bnz       ANALYZER_SLOWRATE_notrig3
+0001AC 385D           00353      swapf     ASM_TEMP10_RAM, 0, 0
+0001AE 1458           00354      andwf     ASM_TEMP5_RAM, 0, 0
+0001B0 185F           00355      xorwf     ASM_TEMP12_RAM, 0 , 0
+0001B2 E1??           00356      bnz       ANALYZER_SLOWRATE_notrig4
+0001B4 2E59           00357      decfsz    ASM_TEMP6_RAM, 1, 0
+0001B6 D???           00358      bra       ANALYZER_SLOWRATE_loop
+0001B8 D???           00359      bra       ANALYZER_trigger
+                      00360 
+0001BA                00361 ANALYZER_SLOWRATE_notrig1:
+0001BA AA81           00362      btfss     PORTB, 5, 0         ; check for abort
+0001BC D???           00363      bra       ANALYZER_trigabort
+0001BE D???           00364      bra       ANALYZER_SLOWRATE_entry
+                      00365 
+0001C0                00366 ANALYZER_SLOWRATE_notrig3:
+0001C0 D???           00367      bra       $+2
+0001C2 D???           00368      bra       ANALYZER_SLOWRATE_notrig4
+                      00369 
+  0000                00370      GLOBAL ANALYZER_SLOWRATE
+                      00371 
+                      00372 ; ////////////////////////////// TRIGGER ROUTINEs //////////////////////////////////
+0001C4                00373 ANALYZER_trigabort:
+0001C4 0E40           00374      movlw     0x40
+0001C6 6E55           00375      movwf     ASM_TEMP2_RAM
+0001C8 0012           00376      return    0
+0001CA                00377 ANALYZER_presample:
+0001CA 5080           00378      movf      PORTA, 0, 0 
+0001CC 6EEF           00379      movwf     INDF0, 0
+0001CE D???           00380      bra       $+2
+0001D0 D???           00381      bra       $+2
+0001D2 D???           00382      bra       $+2
+0001D4 0000           00383      nop
+0001D6 525E           00384      movf      ASM_TEMP11_RAM, 1, 0     
+0001D8 E0??           00385      bz        ANALYZER_trigger_postswap
+0001DA D???           00386      rcall     ANALYZER_Delay
+0001DC D???           00387      bra       ANALYZER_trigger_postswap
+0001DE                00388 ANALYZER_triggerswap:
+0001DE 5080           00389      movf      PORTA, 0, 0    ; trigger sample will be off 1/12 of 1us
+0001E0 6EEF           00390      movwf     INDF0, 0
+0001E2 CFE9 F054      00391      movff     FSR0L, ASM_TEMP1_RAM
+0001E6 50EA           00392      movf      FSR0H, 0, 0
+0001E8 0980           00393      iorlw     0x80      ; set trigger type
+0001EA 6E55           00394      movwf     ASM_TEMP2_RAM, 0
+0001EC D???           00395      bra       $+2
+0001EE 525E           00396      movf      ASM_TEMP11_RAM, 1, 0     
+0001F0 E0??           00397      bz        ANALYZER_trigger_postswap
+0001F2 D???           00398      rcall     ANALYZER_Delay
+0001F4 D???           00399      bra       ANALYZER_trigger_postswap
+0001F6                00400 ANALYZER_trigger:
+0001F6 3880           00401      swapf     PORTA, 0, 0    ; trigger sample will be off 1/12 of 1us
+MPASM  5.21                       PICKIT2.ASM   7-14-2008  10:45:32         PAGE  9
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+0001F8 12ED           00402      iorwf     POSTDEC0, 1, 0
+0001FA 82EA           00403      bsf       FSR0H, 1, 0
+0001FC CFE9 F054      00404      movff     FSR0L, ASM_TEMP1_RAM
+000200 CFEA F055      00405      movff     FSR0H, ASM_TEMP2_RAM
+000204 D???           00406      bra       $+2
+000206 525E           00407      movf      ASM_TEMP11_RAM, 1, 0     
+000208 E0??           00408      bz        ANALYZER_trigger_post
+00020A D???           00409      rcall     ANALYZER_Delay
+00020C D???           00410      bra       ANALYZER_trigger_post
+                      00411 
+00020E                00412 ANALYZER_trigger_post:
+00020E 5080           00413      movf      PORTA, 0, 0
+000210 6EEF           00414      movwf     INDF0, 0   
+000212 0000           00415      nop  
+000214 2E5A           00416      decfsz    ASM_TEMP7_RAM, 1, 0      ; PostTrigCount
+000216 D???           00417      bra       ANALYZER_trigger_redir
+000218 4E5B           00418      dcfsnz    ASM_TEMP8_RAM, 1, 0
+00021A 0012           00419      return    0
+00021C 0000           00420      nop       
+00021E                00421 ANALYZER_trig_cont:
+00021E 0000           00422      nop
+000220 525E           00423      movf      ASM_TEMP11_RAM, 1, 0     
+000222 E0??           00424      bz        ANALYZER_trigger_postswap
+000224 D???           00425      rcall     ANALYZER_Delay
+000226 D???           00426      bra       ANALYZER_trigger_postswap
+                      00427 
+000228                00428 ANALYZER_trigger_postswap:
+000228 3880           00429      swapf     PORTA, 0, 0 
+00022A 12ED           00430      iorwf     POSTDEC0, 1, 0
+00022C 82EA           00431      bsf       FSR0H, 1, 0
+00022E 2E5A           00432      decfsz    ASM_TEMP7_RAM, 1, 0      ; PostTrigCount
+000230 D???           00433      bra       ANALYZER_trigger_redir2
+000232 4E5B           00434      dcfsnz    ASM_TEMP8_RAM, 1, 0
+000234 0012           00435      return    0
+000236 0000           00436      nop       
+000238                00437 ANALYZER_trig_cont2:
+000238 0000           00438      nop
+00023A 525E           00439      movf      ASM_TEMP11_RAM, 1, 0     
+00023C E0??           00440      bz        ANALYZER_trigger_post
+00023E D???           00441      rcall     ANALYZER_Delay
+000240 D???           00442      bra       ANALYZER_trigger_post
+                      00443 
+000242                00444 ANALYZER_trigger_redir:
+000242 D???           00445      bra       ANALYZER_trig_cont
+000244                00446 ANALYZER_trigger_redir2:
+000244 D???           00447      bra       ANALYZER_trig_cont2
+                      00448 
+000246                00449 ANALYZER_Delay:
+                      00450      ; NOTE 11 cycles including call/return for delay of 1
+000246 505E           00451      movf      ASM_TEMP11_RAM, 0, 0
+000248                00452 ANALYZER_Delay_loop:
+000248 D???           00453      bra       $+2
+00024A D???           00454      bra       $+2
+MPASM  5.21                       PICKIT2.ASM   7-14-2008  10:45:32         PAGE 10
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+00024C 0000           00455      nop
+00024E 4EE8           00456      dcfsnz    WREG, 1, 0
+000250 0012           00457      return    0
+000252 D???           00458      bra       $+2
+000254 0000           00459      nop
+000256 D???           00460      bra       ANALYZER_Delay_loop
+                      00461 
+                      00462 
+                      00463 
+                      00464      END
+MPASM  5.21                       PICKIT2.ASM   7-14-2008  10:45:32         PAGE 11
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+A                                 00000000
+ABDEN                             00000000
+ABDOVF                            00000007
+ACCESS                            00000000
+ACKDT                             00000005
+ACKEN                             00000004
+ACKSTAT                           00000006
+ACQT0                             00000003
+ACQT1                             00000004
+ACQT2                             00000005
+ACTVIE                            00000002
+ACTVIF                            00000002
+ADCON0                            00000FC2
+ADCON1                            00000FC1
+ADCON2                            00000FC0
+ADCS0                             00000000
+ADCS1                             00000001
+ADCS2                             00000002
+ADDEN                             00000003
+ADDR0                             00000000
+ADDR1                             00000001
+ADDR2                             00000002
+ADDR3                             00000003
+ADDR4                             00000004
+ADDR5                             00000005
+ADDR6                             00000006
+ADEN                              00000003
+ADFM                              00000007
+ADIE                              00000006
+ADIF                              00000006
+ADIP                              00000006
+ADON                              00000000
+ADRES                             00000FC3
+ADRESH                            00000FC4
+ADRESL                            00000FC3
+AN0                               00000000
+AN1                               00000001
+AN2                               00000002
+AN3                               00000003
+AN4                               00000005
+ANALYZER_Delay                    00000246
+ANALYZER_Delay_loop               00000248
+ANALYZER_FALLING_1MHZ             000000C6
+ANALYZER_FALLING_1MHZ_entry       00000100
+ANALYZER_FALLING_1MHZ_loop        000000E8
+ANALYZER_FALLING_1MHZ_notrig1     00000132
+ANALYZER_FALLING_1MHZ_notrig2     00000118
+ANALYZER_FALLING_1MHZ_notrig3     00000138
+ANALYZER_FALLING_1MHZ_notrig4     000000E4
+ANALYZER_RISING_1MHZ              00000050
+ANALYZER_RISING_1MHZ_entry        0000008A
+ANALYZER_RISING_1MHZ_loop         00000072
+ANALYZER_RISING_1MHZ_notrig1      000000BC
+MPASM  5.21                       PICKIT2.ASM   7-14-2008  10:45:32         PAGE 12
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+ANALYZER_RISING_1MHZ_notrig2      000000A2
+ANALYZER_RISING_1MHZ_notrig3      000000C2
+ANALYZER_RISING_1MHZ_notrig4      0000006E
+ANALYZER_SLOWRATE                 0000013C
+ANALYZER_SLOWRATE_entry           00000180
+ANALYZER_SLOWRATE_loop            00000164
+ANALYZER_SLOWRATE_notrig1         000001BA
+ANALYZER_SLOWRATE_notrig2         0000019C
+ANALYZER_SLOWRATE_notrig3         000001C0
+ANALYZER_SLOWRATE_notrig4         00000160
+ANALYZER_presample                000001CA
+ANALYZER_trig_cont                0000021E
+ANALYZER_trig_cont2               00000238
+ANALYZER_trigabort                000001C4
+ANALYZER_trigger                  000001F6
+ANALYZER_trigger_post             0000020E
+ANALYZER_trigger_postswap         00000228
+ANALYZER_trigger_redir            00000242
+ANALYZER_trigger_redir2           00000244
+ANALYZER_triggerswap              000001DE
+ASM_TEMP10_RAM                    (INLINE_ASM_RAM+9)
+ASM_TEMP11_RAM                    (INLINE_ASM_RAM+0xA)
+ASM_TEMP12_RAM                    (INLINE_ASM_RAM+0xB)
+ASM_TEMP1_RAM                     INLINE_ASM_RAM
+ASM_TEMP2_RAM                     (INLINE_ASM_RAM+1)
+ASM_TEMP3_RAM                     (INLINE_ASM_RAM+2)
+ASM_TEMP4_RAM                     (INLINE_ASM_RAM+3)
+ASM_TEMP5_RAM                     (INLINE_ASM_RAM+4)
+ASM_TEMP6_RAM                     (INLINE_ASM_RAM+5)
+ASM_TEMP7_RAM                     (INLINE_ASM_RAM+6)
+ASM_TEMP8_RAM                     (INLINE_ASM_RAM+7)
+ASM_TEMP9_RAM                     (INLINE_ASM_RAM+8)
+BANKED                            00000001
+BAUDCON                           00000FB8
+BCLIE                             00000003
+BCLIF                             00000003
+BCLIP                             00000003
+BF                                00000000
+BGST                              00000005
+BOR                               00000000
+BRG16                             00000003
+BRGH                              00000002
+BSR                               00000FE0
+BTOEE                             00000004
+BTOEF                             00000004
+BTSEE                             00000007
+BTSEF                             00000007
+C                                 00000000
+C1INV                             00000004
+C1OUT                             00000006
+C2INV                             00000005
+C2OUT                             00000007
+CCP1                              00000002
+MPASM  5.21                       PICKIT2.ASM   7-14-2008  10:45:32         PAGE 13
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+CCP1AS                            00000FB6
+CCP1CON                           00000FBD
+CCP1DEL                           00000FB7
+CCP1IE                            00000002
+CCP1IF                            00000002
+CCP1IP                            00000002
+CCP1M0                            00000000
+CCP1M1                            00000001
+CCP1M2                            00000002
+CCP1M3                            00000003
+CCP2CON                           00000FBA
+CCP2IE                            00000000
+CCP2IF                            00000000
+CCP2IP                            00000000
+CCP2M0                            00000000
+CCP2M1                            00000001
+CCP2M2                            00000002
+CCP2M3                            00000003
+CCPR1                             00000FBE
+CCPR1H                            00000FBF
+CCPR1L                            00000FBE
+CCPR2                             00000FBB
+CCPR2H                            00000FBC
+CCPR2L                            00000FBB
+CFGS                              00000006
+CHS0                              00000002
+CHS1                              00000003
+CHS2                              00000004
+CHS3                              00000005
+CIS                               00000003
+CK                                00000006
+CKE                               00000006
+CKP                               00000004
+CM0                               00000000
+CM1                               00000001
+CM2                               00000002
+CMCON                             00000FB4
+CMIE                              00000006
+CMIF                              00000006
+CMIP                              00000006
+CRC16EE                           00000002
+CRC16EF                           00000002
+CRC5EE                            00000001
+CRC5EF                            00000001
+CREN                              00000004
+CSRC                              00000007
+CVR0                              00000000
+CVR1                              00000001
+CVR2                              00000002
+CVR3                              00000003
+CVRCON                            00000FB5
+CVREF                             00000004
+CVREN                             00000007
+MPASM  5.21                       PICKIT2.ASM   7-14-2008  10:45:32         PAGE 14
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+CVROE                             00000006
+CVRR                              00000005
+CVRSS                             00000004
+D                                 00000005
+DATA_ADDRESS                      00000005
+DC                                00000001
+DC1B0                             00000004
+DC1B1                             00000005
+DC2B0                             00000004
+DC2B1                             00000005
+DDRA                              TRISA
+DDRB                              TRISB
+DDRC                              TRISC
+DDRD                              TRISD
+DDRE                              TRISE
+DFN8EE                            00000003
+DFN8EF                            00000003
+DIR                               00000002
+DONE                              00000001
+D_A                               00000005
+ECCP1AS                           00000FB6
+ECCP1DEL                          00000FB7
+ECCPAS0                           00000004
+ECCPAS1                           00000005
+ECCPAS2                           00000006
+ECCPASE                           00000007
+EEADR                             00000FA9
+EECON1                            00000FA6
+EECON2                            00000FA7
+EEDATA                            00000FA8
+EEIE                              00000004
+EEIF                              00000004
+EEIP                              00000004
+EEPGD                             00000007
+ENDP0                             00000003
+ENDP1                             00000004
+ENDP2                             00000005
+ENDP3                             00000006
+EPCONDIS                          00000003
+EPHSHK                            00000004
+EPINEN                            00000001
+EPOUTEN                           00000002
+EPSTALL                           00000000
+FAST                              00000001
+FERR                              00000002
+FLTS                              00000002
+FREE                              00000004
+FRM0                              00000000
+FRM1                              00000001
+FRM10                             00000002
+FRM2                              00000002
+FRM3                              00000003
+FRM4                              00000004
+MPASM  5.21                       PICKIT2.ASM   7-14-2008  10:45:32         PAGE 15
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+FRM5                              00000005
+FRM6                              00000006
+FRM7                              00000007
+FRM8                              00000000
+FRM9                              00000001
+FSEN                              00000002
+FSR0                              00000000
+FSR0H                             00000FEA
+FSR0L                             00000FE9
+FSR1                              00000001
+FSR1H                             00000FE2
+FSR1L                             00000FE1
+FSR2                              00000002
+FSR2H                             00000FDA
+FSR2L                             00000FD9
+GCEN                              00000007
+GIE                               00000007
+GIEH                              00000007
+GIEL                              00000006
+GO                                00000001
+GO_DONE                           00000001
+HLVDCON                           00000FD2
+HLVDEN                            00000004
+HLVDIE                            00000002
+HLVDIF                            00000002
+HLVDIN                            00000005
+HLVDIP                            00000002
+HLVDL0                            00000000
+HLVDL1                            00000001
+HLVDL2                            00000002
+HLVDL3                            00000003
+I2C_DAT                           00000005
+I2C_READ                          00000002
+I2C_START                         00000003
+I2C_STOP                          00000004
+IDLEIE                            00000004
+IDLEIF                            00000004
+IDLEN                             00000007
+INDF0                             00000FEF
+INDF1                             00000FE7
+INDF2                             00000FDF
+INLINE_ASM_RAM                    0x054
+INT0                              00000000
+INT0E                             00000004
+INT0F                             00000001
+INT0IE                            00000004
+INT0IF                            00000001
+INT1                              00000001
+INT1E                             00000003
+INT1F                             00000000
+INT1IE                            00000003
+INT1IF                            00000000
+INT1IP                            00000006
+MPASM  5.21                       PICKIT2.ASM   7-14-2008  10:45:32         PAGE 16
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+INT1P                             00000006
+INT2                              00000002
+INT2E                             00000004
+INT2F                             00000001
+INT2IE                            00000004
+INT2IF                            00000001
+INT2IP                            00000007
+INT2P                             00000007
+INTCON                            00000FF2
+INTCON2                           00000FF1
+INTCON3                           00000FF0
+INTEDG0                           00000006
+INTEDG1                           00000005
+INTEDG2                           00000004
+INTSRC                            00000007
+IOFS                              00000002
+IPEN                              00000007
+IPR1                              00000F9F
+IPR2                              00000FA2
+IRCF0                             00000004
+IRCF1                             00000005
+IRCF2                             00000006
+IRVST                             00000005
+IVRST                             00000005
+JTAG2W4PH                         00000000
+LATA                              00000F89
+LATA0                             00000000
+LATA1                             00000001
+LATA2                             00000002
+LATA3                             00000003
+LATA4                             00000004
+LATA5                             00000005
+LATA6                             00000006
+LATB                              00000F8A
+LATB0                             00000000
+LATB1                             00000001
+LATB2                             00000002
+LATB3                             00000003
+LATB4                             00000004
+LATB5                             00000005
+LATB6                             00000006
+LATB7                             00000007
+LATC                              00000F8B
+LATC0                             00000000
+LATC1                             00000001
+LATC2                             00000002
+LATC6                             00000006
+LATC7                             00000007
+LOGICPREP                         0000002C
+LOGICPREP_loop                    00000048
+LVDCON                            00000FD2
+LVDEN                             00000004
+LVDIE                             00000002
+MPASM  5.21                       PICKIT2.ASM   7-14-2008  10:45:32         PAGE 17
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+LVDIF                             00000002
+LVDIN                             00000005
+LVDIP                             00000002
+LVDL0                             00000000
+LVDL1                             00000001
+LVDL2                             00000002
+LVDL3                             00000003
+LVV0                              00000000
+LVV1                              00000001
+LVV2                              00000002
+LVV3                              00000003
+N                                 00000004
+NOT_A                             00000005
+NOT_ADDRESS                       00000005
+NOT_BOR                           00000000
+NOT_DONE                          00000001
+NOT_IPEN                          00000007
+NOT_PD                            00000002
+NOT_POR                           00000001
+NOT_RBPU                          00000007
+NOT_RI                            00000004
+NOT_T1SYNC                        00000002
+NOT_T3SYNC                        00000002
+NOT_TO                            00000003
+NOT_W                             00000002
+NOT_WRITE                         00000002
+OERR                              00000001
+OSC2                              00000006
+OSCCON                            00000FD3
+OSCFIE                            00000007
+OSCFIF                            00000007
+OSCFIP                            00000007
+OSCTUNE                           00000F9B
+OSTS                              00000003
+OV                                00000003
+P                                 00000004
+P1A                               00000002
+PC                                00000FF9
+PCFG0                             00000000
+PCFG1                             00000001
+PCFG2                             00000002
+PCFG3                             00000003
+PCL                               00000FF9
+PCLATH                            00000FFA
+PCLATU                            00000FFB
+PD                                00000002
+PEIE                              00000006
+PEN                               00000002
+PGC                               00000006
+PGD                               00000007
+PGM                               00000005
+PIDEE                             00000000
+PIDEF                             00000000
+MPASM  5.21                       PICKIT2.ASM   7-14-2008  10:45:32         PAGE 18
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+PIE1                              00000F9D
+PIE2                              00000FA0
+PIR1                              00000F9E
+PIR2                              00000FA1
+PKTDIS                            00000004
+PLUSW0                            00000FEB
+PLUSW1                            00000FE3
+PLUSW2                            00000FDB
+POR                               00000001
+PORTA                             00000F80
+PORTB                             00000F81
+PORTC                             00000F82
+PORTE                             00000F84
+POSTDEC0                          00000FED
+POSTDEC1                          00000FE5
+POSTDEC2                          00000FDD
+POSTINC0                          00000FEE
+POSTINC1                          00000FE6
+POSTINC2                          00000FDE
+PPB0                              00000000
+PPB1                              00000001
+PPBI                              00000001
+PPBRST                            00000006
+PR2                               00000FCB
+PREINC0                           00000FEC
+PREINC1                           00000FE4
+PREINC2                           00000FDC
+PROD                              00000FF3
+PRODH                             00000FF4
+PRODL                             00000FF3
+PRSEN                             00000007
+PSA                               00000003
+PSSAC0                            00000002
+PSSAC1                            00000003
+R                                 00000002
+RA0                               00000000
+RA1                               00000001
+RA2                               00000002
+RA3                               00000003
+RA4                               00000004
+RA5                               00000005
+RA6                               00000006
+RB0                               00000000
+RB1                               00000001
+RB2                               00000002
+RB3                               00000003
+RB4                               00000004
+RB5                               00000005
+RB6                               00000006
+RB7                               00000007
+RBIE                              00000003
+RBIF                              00000000
+RBIP                              00000000
+MPASM  5.21                       PICKIT2.ASM   7-14-2008  10:45:32         PAGE 19
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+RBPU                              00000007
+RC0                               00000000
+RC1                               00000001
+RC2                               00000002
+RC4                               00000004
+RC5                               00000005
+RC6                               00000006
+RC7                               00000007
+RCEN                              00000003
+RCIDL                             00000006
+RCIE                              00000005
+RCIF                              00000005
+RCIP                              00000005
+RCMT                              00000006
+RCON                              00000FD0
+RCREG                             00000FAE
+RCSTA                             00000FAB
+RD                                00000000
+RD16                              00000007
+RE3                               00000003
+READ_WRITE                        00000002
+RESUME                            00000002
+RI                                00000004
+RSEN                              00000001
+RX                                00000007
+RX9                               00000006
+RX9D                              00000000
+RXDTP                             00000005
+R_W                               00000002
+S                                 00000003
+SBOREN                            00000006
+SCKP                              00000004
+SCS0                              00000000
+SCS1                              00000001
+SE0                               00000005
+SEN                               00000000
+SENDB                             00000003
+SMP                               00000007
+SOFIE                             00000006
+SOFIF                             00000006
+SPBRG                             00000FAF
+SPBRGH                            00000FB0
+SPEN                              00000007
+SREN                              00000005
+SSPADD                            00000FC8
+SSPBUF                            00000FC9
+SSPCON1                           00000FC6
+SSPCON2                           00000FC5
+SSPEN                             00000005
+SSPIE                             00000003
+SSPIF                             00000003
+SSPIP                             00000003
+SSPM0                             00000000
+MPASM  5.21                       PICKIT2.ASM   7-14-2008  10:45:32         PAGE 20
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+SSPM1                             00000001
+SSPM2                             00000002
+SSPM3                             00000003
+SSPOV                             00000006
+SSPSTAT                           00000FC7
+STALLIE                           00000005
+STALLIF                           00000005
+STATUS                            00000FD8
+STKFUL                            00000007
+STKPTR                            00000FFC
+STKPTR0                           00000000
+STKPTR1                           00000001
+STKPTR2                           00000002
+STKPTR3                           00000003
+STKPTR4                           00000004
+STKUNF                            00000006
+SUSPND                            00000001
+SWDTE                             00000000
+SWDTEN                            00000000
+SYNC                              00000004
+T08BIT                            00000006
+T0CKI                             00000004
+T0CON                             00000FD5
+T0CS                              00000005
+T0IE                              00000005
+T0IF                              00000002
+T0IP                              00000002
+T0PS0                             00000000
+T0PS1                             00000001
+T0PS2                             00000002
+T0SE                              00000004
+T13CKI                            00000000
+T1CKPS0                           00000004
+T1CKPS1                           00000005
+T1CON                             00000FCD
+T1OSCEN                           00000003
+T1OSI                             00000001
+T1OSO                             00000000
+T1RUN                             00000006
+T1SYNC                            00000002
+T2CKPS0                           00000000
+T2CKPS1                           00000001
+T2CON                             00000FCA
+T2OUTPS0                          00000003
+T2OUTPS1                          00000004
+T2OUTPS2                          00000005
+T2OUTPS3                          00000006
+T3CCP1                            00000003
+T3CCP2                            00000006
+T3CKPS0                           00000004
+T3CKPS1                           00000005
+T3CON                             00000FB1
+T3NSYNC                           00000002
+MPASM  5.21                       PICKIT2.ASM   7-14-2008  10:45:32         PAGE 21
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+T3SYNC                            00000002
+TABLAT                            00000FF5
+TBLPTR                            00000FF6
+TBLPTRH                           00000FF7
+TBLPTRL                           00000FF6
+TBLPTRU                           00000FF8
+TMR0H                             00000FD7
+TMR0IE                            00000005
+TMR0IF                            00000002
+TMR0IP                            00000002
+TMR0L                             00000FD6
+TMR0ON                            00000007
+TMR1CS                            00000001
+TMR1H                             00000FCF
+TMR1IE                            00000000
+TMR1IF                            00000000
+TMR1IP                            00000000
+TMR1L                             00000FCE
+TMR1ON                            00000000
+TMR2                              00000FCC
+TMR2IE                            00000001
+TMR2IF                            00000001
+TMR2IP                            00000001
+TMR2ON                            00000002
+TMR3CS                            00000001
+TMR3H                             00000FB3
+TMR3IE                            00000001
+TMR3IF                            00000001
+TMR3IP                            00000001
+TMR3L                             00000FB2
+TMR3ON                            00000000
+TO                                00000003
+TOS                               00000FFD
+TOSH                              00000FFE
+TOSL                              00000FFD
+TOSU                              00000FFF
+TRISA                             00000F92
+TRISA0                            00000000
+TRISA1                            00000001
+TRISA2                            00000002
+TRISA3                            00000003
+TRISA4                            00000004
+TRISA5                            00000005
+TRISA6                            00000006
+TRISB                             00000F93
+TRISB0                            00000000
+TRISB1                            00000001
+TRISB2                            00000002
+TRISB3                            00000003
+TRISB4                            00000004
+TRISB5                            00000005
+TRISB6                            00000006
+TRISB7                            00000007
+MPASM  5.21                       PICKIT2.ASM   7-14-2008  10:45:32         PAGE 22
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+TRISC                             00000F94
+TRISC0                            00000000
+TRISC1                            00000001
+TRISC2                            00000002
+TRISC6                            00000006
+TRISC7                            00000007
+TRMT                              00000001
+TRNIE                             00000003
+TRNIF                             00000003
+TUN0                              00000000
+TUN1                              00000001
+TUN2                              00000002
+TUN3                              00000003
+TUN4                              00000004
+TX                                00000006
+TX9                               00000006
+TX9D                              00000000
+TXCKP                             00000004
+TXEN                              00000005
+TXIE                              00000004
+TXIF                              00000004
+TXIP                              00000004
+TXREG                             00000FAD
+TXSTA                             00000FAC
+UA                                00000001
+UADDR                             00000F6E
+UCFG                              00000F6F
+UCON                              00000F6D
+UEIE                              00000F6B
+UEIR                              00000F6A
+UEP0                              00000F70
+UEP1                              00000F71
+UEP10                             00000F7A
+UEP11                             00000F7B
+UEP12                             00000F7C
+UEP13                             00000F7D
+UEP14                             00000F7E
+UEP15                             00000F7F
+UEP2                              00000F72
+UEP3                              00000F73
+UEP4                              00000F74
+UEP5                              00000F75
+UEP6                              00000F76
+UEP7                              00000F77
+UEP8                              00000F78
+UEP9                              00000F79
+UERRIE                            00000001
+UERRIF                            00000001
+UFRM                              00000F66
+UFRMH                             00000F67
+UFRML                             00000F66
+UIE                               00000F69
+UIR                               00000F68
+MPASM  5.21                       PICKIT2.ASM   7-14-2008  10:45:32         PAGE 23
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+UOEMON                            00000006
+UPUEN                             00000004
+URSTIE                            00000000
+URSTIF                            00000000
+USBEN                             00000003
+USBIE                             00000005
+USBIF                             00000005
+USBIP                             00000005
+USTAT                             00000F6C
+UTEYE                             00000007
+UTRDIS                            00000003
+VCFG0                             00000004
+VCFG1                             00000005
+VDIRMAG                           00000007
+VREFM                             00000002
+VREFP                             00000003
+W                                 00000000
+WCOL                              00000007
+WDTCON                            00000FD1
+WR                                00000001
+WREG                              00000FE8
+WREN                              00000002
+WRERR                             00000003
+WUE                               00000001
+Z                                 00000002
+_.code_0066                       00000066
+_.code_0068                       00000068
+_.code_006A                       0000006A
+_.code_00DC                       000000DC
+_.code_00DE                       000000DE
+_.code_00E0                       000000E0
+_.code_0156                       00000156
+_.code_0158                       00000158
+_.code_015A                       0000015A
+_.code_01C0                       000001C0
+_.code_01CE                       000001CE
+_.code_01D0                       000001D0
+_.code_01D2                       000001D2
+_.code_01EC                       000001EC
+_.code_0204                       00000204
+_.code_0248                       00000248
+_.code_024A                       0000024A
+_.code_0252                       00000252
+_BORV_0_2L                        000000E7
+_BORV_1_2L                        000000EF
+_BORV_2_2L                        000000F7
+_BORV_3_2L                        000000FF
+_BOR_OFF_2L                       000000F9
+_BOR_ON_2L                        000000FF
+_BOR_ON_ACTIVE_2L                 000000FD
+_BOR_SOFT_2L                      000000FB
+_CCP2MX_OFF_3H                    000000FE
+_CCP2MX_ON_3H                     000000FF
+MPASM  5.21                       PICKIT2.ASM   7-14-2008  10:45:32         PAGE 24
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+_CONFIG1H                         00300001
+_CONFIG1L                         00300000
+_CONFIG2H                         00300003
+_CONFIG2L                         00300002
+_CONFIG3H                         00300005
+_CONFIG4L                         00300006
+_CONFIG5H                         00300009
+_CONFIG5L                         00300008
+_CONFIG6H                         0030000B
+_CONFIG6L                         0030000A
+_CONFIG7H                         0030000D
+_CONFIG7L                         0030000C
+_CP0_OFF_5L                       000000FF
+_CP0_ON_5L                        000000FE
+_CP1_OFF_5L                       000000FF
+_CP1_ON_5L                        000000FD
+_CP2_OFF_5L                       000000FF
+_CP2_ON_5L                        000000FB
+_CP3_OFF_5L                       000000FF
+_CP3_ON_5L                        000000F7
+_CPB_OFF_5H                       000000FF
+_CPB_ON_5H                        000000BF
+_CPD_OFF_5H                       000000FF
+_CPD_ON_5H                        0000007F
+_CPUDIV_OSC1_PLL2_1L              000000E7
+_CPUDIV_OSC2_PLL3_1L              000000EF
+_CPUDIV_OSC3_PLL4_1L              000000F7
+_CPUDIV_OSC4_PLL6_1L              000000FF
+_DEBUG_OFF_4L                     000000FF
+_DEBUG_ON_4L                      0000007F
+_DEVID1                           003FFFFE
+_DEVID2                           003FFFFF
+_EBTR0_OFF_7L                     000000FF
+_EBTR0_ON_7L                      000000FE
+_EBTR1_OFF_7L                     000000FF
+_EBTR1_ON_7L                      000000FD
+_EBTR2_OFF_7L                     000000FF
+_EBTR2_ON_7L                      000000FB
+_EBTR3_OFF_7L                     000000FF
+_EBTR3_ON_7L                      000000F7
+_EBTRB_OFF_7H                     000000FF
+_EBTRB_ON_7H                      000000BF
+_FCMEN_OFF_1H                     000000BF
+_FCMEN_ON_1H                      000000FF
+_FOSC_ECIO_EC_1H                  000000F4
+_FOSC_ECPLLIO_EC_1H               000000F6
+_FOSC_ECPLL_EC_1H                 000000F7
+_FOSC_EC_EC_1H                    000000F5
+_FOSC_HSPLL_HS_1H                 000000FE
+_FOSC_HS_1H                       000000FC
+_FOSC_INTOSCIO_EC_1H              000000F8
+_FOSC_INTOSC_EC_1H                000000F9
+_FOSC_INTOSC_HS_1H                000000FB
+MPASM  5.21                       PICKIT2.ASM   7-14-2008  10:45:32         PAGE 25
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+_FOSC_INTOSC_XT_1H                000000FA
+_FOSC_XTPLL_XT_1H                 000000F2
+_FOSC_XT_XT_1H                    000000F0
+_IDLOC0                           00200000
+_IDLOC1                           00200001
+_IDLOC2                           00200002
+_IDLOC3                           00200003
+_IDLOC4                           00200004
+_IDLOC5                           00200005
+_IDLOC6                           00200006
+_IDLOC7                           00200007
+_IESO_OFF_1H                      0000007F
+_IESO_ON_1H                       000000FF
+_LPT1OSC_OFF_3H                   000000FB
+_LPT1OSC_ON_3H                    000000FF
+_LVP_OFF_4L                       000000FB
+_LVP_ON_4L                        000000FF
+_MCLRE_OFF_3H                     0000007F
+_MCLRE_ON_3H                      000000FF
+_PBADEN_OFF_3H                    000000FD
+_PBADEN_ON_3H                     000000FF
+_PLLDIV_10_1L                     000000FE
+_PLLDIV_12_1L                     000000FF
+_PLLDIV_1_1L                      000000F8
+_PLLDIV_2_1L                      000000F9
+_PLLDIV_3_1L                      000000FA
+_PLLDIV_4_1L                      000000FB
+_PLLDIV_5_1L                      000000FC
+_PLLDIV_6_1L                      000000FD
+_PWRT_OFF_2L                      000000FF
+_PWRT_ON_2L                       000000FE
+_STVREN_OFF_4L                    000000FE
+_STVREN_ON_4L                     000000FF
+_USBDIV_1_1L                      000000DF
+_USBDIV_2_1L                      000000FF
+_VREGEN_OFF_2L                    000000DF
+_VREGEN_ON_2L                     000000FF
+_WDTPS_1024_2H                    000000F5
+_WDTPS_128_2H                     000000EF
+_WDTPS_16384_2H                   000000FD
+_WDTPS_16_2H                      000000E9
+_WDTPS_1_2H                       000000E1
+_WDTPS_2048_2H                    000000F7
+_WDTPS_256_2H                     000000F1
+_WDTPS_2_2H                       000000E3
+_WDTPS_32768_2H                   000000FF
+_WDTPS_32_2H                      000000EB
+_WDTPS_4096_2H                    000000F9
+_WDTPS_4_2H                       000000E5
+_WDTPS_512_2H                     000000F3
+_WDTPS_64_2H                      000000ED
+_WDTPS_8192_2H                    000000FB
+_WDTPS_8_2H                       000000E7
+MPASM  5.21                       PICKIT2.ASM   7-14-2008  10:45:32         PAGE 26
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+_WDT_OFF_2H                       000000FE
+_WDT_ON_2H                        000000FF
+_WRT0_OFF_6L                      000000FF
+_WRT0_ON_6L                       000000FE
+_WRT1_OFF_6L                      000000FF
+_WRT1_ON_6L                       000000FD
+_WRT2_OFF_6L                      000000FF
+_WRT2_ON_6L                       000000FB
+_WRT3_OFF_6L                      000000FF
+_WRT3_ON_6L                       000000F7
+_WRTB_OFF_6H                      000000FF
+_WRTB_ON_6H                       000000BF
+_WRTC_OFF_6H                      000000FF
+_WRTC_ON_6H                       000000DF
+_WRTD_OFF_6H                      000000FF
+_WRTD_ON_6H                       0000007F
+_XINST_OFF_4L                     000000BF
+_XINST_ON_4L                      000000FF
+__18F2550                         00000001
+
+Errors   :     0
+Warnings :     1 reported,     0 suppressed
+Messages :     0 reported,     0 suppressed
+
+

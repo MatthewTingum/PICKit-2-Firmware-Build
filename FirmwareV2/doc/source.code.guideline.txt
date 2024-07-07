@@ -1,0 +1,15 @@
+
+Naming Schemes:
+
+Types           Description             Example
+-----------------------------------------------------------------
+Typedef         All cap                 USB_DEV_STATE
+Macro           m- Prefix & First Cap   mUsb_reset()
+Function        First Cap               Usb_service()
+Variable        All lower-case          usb_dev_state
+Constant        All cap                 MAX_INTF
+Initial Value   -_VAL suffix & All cap  UCFG_VAL
+
+
+Other Rules:
+-----------------------------------------------------------------

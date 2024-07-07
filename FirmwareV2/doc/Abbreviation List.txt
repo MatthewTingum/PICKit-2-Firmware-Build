@@ -1,0 +1,109 @@
+
+A
+ACM             Abstract Control Model
+ACT             Activity, Active
+ADR             Address
+ALLOC           Allocation
+ALT             Alternate
+AUX             Auxiliary
+
+B
+BD              Buffer Descriptor
+BDT             Buffer Descriptor Table
+BUFF            Buffer
+
+C
+CDC             Communication Device Class
+CFG             Configuration
+CLR             Clear
+CLS             Class
+CTRL            Control
+
+D
+DC              Device Class
+DEF             Definition
+DEFS            See DEF
+DEV             Device
+DIR             Direction
+DSC             Descriptor
+
+E
+ENDP            Endpoint
+EP              Endpoint
+EXT             External
+
+F
+FN              Functional
+FS              Full-Speed
+
+H
+HID             Human Interface Device
+
+I
+INIT            Initialize
+INT             Interrupt / Internal
+INTF            Interface
+IO              Input/Output
+ISOCH           Isochronous
+ISR             Interrupt Service Routine
+
+L
+LANG            Language
+LEN             Length
+LS              Low-Speed
+
+M
+MAX             Maximum
+MCHP            Microchip Technology
+MEM             Memory
+MFR             Manufacturer, Manufacturing, Manufacture
+MGT             Management
+MIN             Minimum
+MSD             Mass Storage Device
+
+N
+NUM             Number
+
+O
+OP              Operational
+
+P
+PKT             Packet
+PID             Packet ID
+PP              Ping-Pong
+PREP            Preparation
+PTR             Pointer
+
+R
+RDY             Ready
+REG             Register
+REQ             Request
+RCPT            Recipient
+RPT             Report
+RWU             RemoteWakeup
+RX              Receive
+
+S
+SIE             Serial Interface Engine
+STAT            Status
+STD             Standard
+SYNCH           Synchronous,Synchronization
+SYS             System
+
+T
+TEL             Telephone
+TR              Tranceiver
+TRF             Transfer
+TX              Transmit
+
+U
+USB             Universal Serial Bus
+UTIL            Utility
+
+V
+VAR             Variable
+VAL             Value
+VEND            Vendor
+
+Z
+ZLP             Zero Length Packet
