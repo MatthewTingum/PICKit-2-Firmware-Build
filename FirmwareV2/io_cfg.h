@@ -99,6 +99,7 @@
 
 #define tris_PROG_SWITCH    TRISBbits.TRISB5    // RB5 Input (Weak Pull-up)
 #define PROG_SWITCH_pin     PORTBbits.RB5
+#define PROG_SWITCH         PORTBbits.RB5
 
                             // RB6 is ICSPCLK (PGC)
 
