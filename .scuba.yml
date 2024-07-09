@@ -1,0 +1,55 @@
+image: matthewtingum/mplabc18-v3.40:1.0
+
+aliases:
+  build:
+    script:
+      # "Clean" the build directories
+      - rm -rf build
+      - mkdir build
+      - mkdir build/usb
+      - mkdir build/fw
+      - mkdir build/bl
+      - rm -rf dist
+      - mkdir dist
+
+      # Compile common USB objects
+      - mcc18 -p18F2550 -I./FirmwareV2 -I/opt/microchip/mplabc18/v3.40/h -fo build/usb/usbdsc.o ./FirmwareV2/autofiles/usbdsc.c
+      - mcc18 -p18F2550 -I./FirmwareV2 -I/opt/microchip/mplabc18/v3.40/h -fo build/usb/hid.o ./FirmwareV2/system/usb/class/hid/hid.c
+      - mcc18 -p18F2550 -I./FirmwareV2 -I/opt/microchip/mplabc18/v3.40/h -fo build/usb/usb9.o ./FirmwareV2/system/usb/usb9/usb9.c
+      - mcc18 -p18F2550 -I./FirmwareV2 -I/opt/microchip/mplabc18/v3.40/h -fo build/usb/usbctrltrf.o ./FirmwareV2/system/usb/usbctrltrf/usbctrltrf.c
+      - mcc18 -p18F2550 -I./FirmwareV2 -I/opt/microchip/mplabc18/v3.40/h -fo build/usb/usbdrv.o ./FirmwareV2/system/usb/usbdrv/usbdrv.c
+      - mcc18 -p18F2550 -I./FirmwareV2 -I/opt/microchip/mplabc18/v3.40/h -fo build/usb/usbmmap.o ./FirmwareV2/system/usb/usbmmap.c
+
+      # Compile PICKit 2 firmware
+      - mcc18 -p18F2550 -I./FirmwareV2 -I/opt/microchip/mplabc18/v3.40/h -fo build/fw/pickit.o ./FirmwareV2/user/pickit.c
+      - mcc18 -p18F2550 -I./FirmwareV2 -I/opt/microchip/mplabc18/v3.40/h -fo build/fw/pk_isr.o ./FirmwareV2/user/pk_isr.c
+      - mcc18 -p18F2550 -I./FirmwareV2 -I/opt/microchip/mplabc18/v3.40/h -fo build/fw/main.o ./FirmwareV2/main.c
+      - mcc18 -p18F2550 -I./FirmwareV2 -I/opt/microchip/mplabc18/v3.40/h -fo build/fw/pk_prog2go.o ./FirmwareV2/user/pk_prog2go.c
+      - MPASMWIN -q -p18F2550 -u -lbuild/fw/pickit2.lst -ebuild/fw/pickit2.err -obuild/fw/pickit2.o ./FirmwareV2/user/pickit2.asm
+      # Link PICKit 2 firmware
+      - mplink FirmwareV2/PICkit2.lkr -p18f2550 -w -m"dist/PICkit2_FWv2.X.production.map" -z__MPLAB_BUILD=1  -u_CRUNTIME -o dist/PICkit2_FWv2.X.production.cof
+            build/usb/usbdsc.o
+            build/usb/hid.o
+            build/usb/usb9.o
+            build/usb/usbctrltrf.o
+            build/usb/usbdrv.o
+            build/usb/usbmmap.o
+            build/fw/pickit.o
+            build/fw/pk_isr.o
+            build/fw/pickit2.o
+            build/fw/pk_prog2go.o
+            build/fw/main.o
+
+      # Compile PICKit 2 bootloader
+      - mcc18 -p18F2550 -I./FirmwareV2 -I/opt/microchip/mplabc18/v3.40/h -fo build/bl/boot_main.o ./FirmwareV2/boot_main.c
+      - mcc18 -p18F2550 -I./FirmwareV2 -I/opt/microchip/mplabc18/v3.40/h -fo build/bl/boot.o ./FirmwareV2/user/boot.c
+      # Link PICKit 2 bootloader
+      - mplink FirmwareV2/Bootloader.lkr -p18f2550 -w -z__MPLAB_BUILD=1  -u_CRUNTIME -o dist/PICkit2Bootloader.X.production.cof
+            build/usb/usbdsc.o
+            build/usb/hid.o
+            build/usb/usb9.o
+            build/usb/usbmmap.o
+            build/usb/usbdrv.o
+            build/usb/usbctrltrf.o
+            build/bl/boot.o
+            build/bl/boot_main.o

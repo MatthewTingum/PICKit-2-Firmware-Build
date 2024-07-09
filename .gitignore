@@ -1,0 +1,4 @@
+build
+dist
+docker/mplabc18-v3.40-linux-full-installer.run
+*.swp
