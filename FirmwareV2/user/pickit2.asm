@@ -1,4 +1,4 @@
-     INCLUDE "p18f2550.inc"
+     INCLUDE "P18F2550.INC"
      INCLUDE "pickit2.inc"
      
      CODE
