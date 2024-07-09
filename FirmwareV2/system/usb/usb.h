@@ -44,19 +44,19 @@
  * Dependency conflicts are resolved by the correct ordering.
  */
 
-#include "autofiles\usbcfg.h"
-#include "system\usb\usbdefs\usbdefs_std_dsc.h"
-#include "autofiles\usbdsc.h"
+#include "autofiles/usbcfg.h"
+#include "system/usb/usbdefs/usbdefs_std_dsc.h"
+#include "autofiles/usbdsc.h"
 
-#include "system\usb\usbdefs\usbdefs_ep0_buff.h"
-#include "system\usb\usbmmap.h"
+#include "system/usb/usbdefs/usbdefs_ep0_buff.h"
+#include "system/usb/usbmmap.h"
 
-#include "system\usb\usbdrv\usbdrv.h"
-#include "system\usb\usbctrltrf\usbctrltrf.h"
-#include "system\usb\usb9\usb9.h"
+#include "system/usb/usbdrv/usbdrv.h"
+#include "system/usb/usbctrltrf/usbctrltrf.h"
+#include "system/usb/usb9/usb9.h"
 
-#if defined(USB_USE_HID)                // See autofiles\usbcfg.h
-#include "system\usb\class\hid\hid.h"
+#if defined(USB_USE_HID)                // See autofiles/usbcfg.h
+#include "system/usb/class/hid/hid.h"
 #endif
 
 #endif //USB_H

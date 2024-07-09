@@ -88,13 +88,13 @@
 /** I N C L U D E S **********************************************************/
 #include <p18cxxx.h>
 #include "delays.h"
-#include "system\typedefs.h"
-#include "system\usb\usb.h"
+#include "system/typedefs.h"
+#include "system/usb/usb.h"
 
 #include "io_cfg.h"                 // I/O pin mapping
-#include "user\pickit.h"
-#include "user\pk_isr.h"
-#include "user\pk_prog2go.h"
+#include "user/pickit.h"
+#include "user/pk_isr.h"
+#include "user/pk_prog2go.h"
 
 /** V A R I A B L E S ********************************************************/
 #pragma udata	ScriptBuffer					// in banks 5,6, & 7.

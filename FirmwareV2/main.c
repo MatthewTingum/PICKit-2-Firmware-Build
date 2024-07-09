@@ -38,13 +38,13 @@
 /** I N C L U D E S **********************************************************/
 
 #include <p18cxxx.h>
-#include "system\typedefs.h"                        // Required
-#include "system\usb\usb.h"                         // Required
+#include "system/typedefs.h"                        // Required
+#include "system/usb/usb.h"                         // Required
 #include "io_cfg.h"                                 // Required
 
-#include "system\usb\usb_compile_time_validation.h" // Optional
-#include "user\pickit.h"
-#include "user\pk_isr.h"
+#include "system/usb/usb_compile_time_validation.h" // Optional
+#include "user/pickit.h"
+#include "user/pk_isr.h"
 
 
 /** V A R I A B L E S ********************************************************/

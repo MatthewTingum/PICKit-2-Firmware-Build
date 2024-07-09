@@ -43,8 +43,8 @@
 
 /** I N C L U D E S **********************************************************/
 #include <p18cxxx.h>
-#include "system\typedefs.h"
-#include "system\usb\usb.h"
+#include "system/typedefs.h"
+#include "system/usb/usb.h"
 #include "io_cfg.h"             // Required for USBCheckBusStatus()
 
 /** V A R I A B L E S ********************************************************/

@@ -149,8 +149,8 @@
  *****************************************************************************/
  
 /** I N C L U D E S **********************************************************/
-#include "system\typedefs.h"
-#include "system\usb\usb.h"
+#include "system/typedefs.h"
+#include "system/usb/usb.h"
 
 /** U S B  G L O B A L  V A R I A B L E S ************************************/
 #pragma udata

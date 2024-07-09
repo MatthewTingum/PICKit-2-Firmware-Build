@@ -37,7 +37,7 @@
 #define USB9_H
 
 /** I N C L U D E S **********************************************************/
-#include "system\typedefs.h"
+#include "system/typedefs.h"
 
 /** D E F I N I T I O N S ****************************************************/
 

@@ -41,18 +41,18 @@
 #define USBDSC_H
 
 /** I N C L U D E S *************************************************/
-#include "system\typedefs.h"
-#include "autofiles\usbcfg.h"
+#include "system/typedefs.h"
+#include "autofiles/usbcfg.h"
 
 #if defined(USB_USE_HID)
-#include "system\usb\class\hid\hid.h"
+#include "system/usb/class/hid/hid.h"
 #endif
 
 #if defined(USB_USE_CDC)
-#include "system\usb\class\cdc\cdc.h"
+#include "system/usb/class/cdc/cdc.h"
 #endif
 
-#include "system\usb\usb.h"
+#include "system/usb/usb.h"
 
 /** D E F I N I T I O N S *******************************************/
 #define CFG01 rom struct\

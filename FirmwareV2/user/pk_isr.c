@@ -38,8 +38,8 @@
 
 #include <p18cxxx.h>
 #include "io_cfg.h"
-#include "system\typedefs.h"
-#include "user\pk_isr.h"
+#include "system/typedefs.h"
+#include "user/pk_isr.h"
 #include "pickit.h"
 
 
