@@ -39,11 +39,11 @@
 /** C O N F I G U R A T I O N   B I T S **************************************/
 
 #pragma config PLLDIV = 5, CPUDIV = OSC1_PLL2, USBDIV = 2                   // CONFIG1L
-#pragma config FOSC = HSPLL_HS, FCMEM = OFF, IESO = OFF                     // CONFIG1H
-#pragma config PWRT = ON, BOR = OFF, BORV = 21, VREGEN = ON                 // CONFIG2L
+#pragma config FOSC = HSPLL_HS, FCMEN = OFF, IESO = OFF                     // CONFIG1H
+#pragma config PWRT = ON, BOR = OFF, BORV = 3, VREGEN = ON                  // CONFIG2L
 #pragma config WDT = OFF, WDTPS = 32768                                     // CONFIG2H
 #pragma config MCLRE = OFF, LPT1OSC = OFF, PBADEN = OFF, CCP2MX = ON        // CONFIG3H
-#pragma config STVREN = ON, LVP = OFF, ICPRT = OFF, XINST = OFF, DEBUG = OFF// CONFIG4L
+#pragma config STVREN = ON, LVP = OFF, XINST = OFF, DEBUG = OFF             // CONFIG4L
 #pragma config CP0 = OFF, CP1 = OFF, CP2 = OFF, CP3 = OFF                   // CONFIG5L
 #pragma config CPB = OFF, CPD = OFF                                         // CONFIG5H
 #pragma config WRT0 = ON, WRT1 = OFF, WRT2 = OFF, WRT3 = OFF                // CONFIG6L
